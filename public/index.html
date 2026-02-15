@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Cambio Global | VES USD EUR COP</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="../manifest.json">
+    <link rel="preload" as="image" href="../icons/cambio.png">
+    <link rel="icon" type="image/png" href="../icons/cambio.png">
+    <link rel="apple-touch-icon" href="../icons/cambio.png">
+    <meta name="theme-color" content="#0f172a">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+
+    <div class="background-shape shape-1"></div>
+    <div class="background-shape shape-2"></div>
+
+    <div class="glass-container">
+        <button id="qrBtn" class="qr-btn" aria-label="Compartir QR"><i class="fas fa-qrcode"></i></button>
+        <button id="infoBtn" class="info-btn" aria-label="Acerca de"><i class="fas fa-info-circle"></i></button>
+        <div id="statusDot" class="status-dot" title="En línea"></div>
+        <header>
+            <h1><i class="fas fa-exchange-alt"></i> Mi Cambio Global</h1>
+            <p>Cotización en tiempo real</p>
+        </header>
+
+        <div class="converter-section">
+            <div class="input-group">
+                <label>Tengo:</label>
+                <div class="input-wrapper">
+                    <input type="number" id="amount" value="1" placeholder="0.00">
+                    <select id="baseCurrency">
+                        <option value="USD">USD - Dólar</option>
+                        <option value="VES">VES - Bolívares</option>
+                        <option value="EUR">EUR - Euro</option>
+                        <option value="COP">COP - Pesos Col.</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="divider">
+                <span>Resultados</span>
+            </div>
+
+            <div class="results-grid" id="resultsContainer">
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="exchangeChart"></canvas>
+        </div>
+
+        <div class="status-bar">
+            <small id="lastUpdated">Actualizando tasas...</small>
+            <button id="refreshBtn" class="refresh-btn" aria-label="Actualizar ahora" title="Forzar actualización"><i
+                    class="fas fa-sync-alt"></i></button>
+        </div>
+    </div>
+
+    <div id="toast" class="toast">¡Copiado al portapapeles!</div>
+
+    <!-- Modal Acerca de -->
+    <div id="infoModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>Acerca de</h2>
+            <img src="../icons/icon.png" alt="Logo" class="about-icon">
+            <p style="margin: 10px 0; font-weight: bold; color: var(--accent);">Mi Cambio Global v1.0</p>
+            <p style="color: var(--text-secondary); font-size: 0.9rem;">
+                Herramienta de conversión de divisas en tiempo real con gráficos históricos y soporte offline.
+            </p>
+            <div
+                style="margin-top: 15px; padding-top: 10px; border-top: 1px solid var(--glass-border); font-size: 0.8rem; color: var(--text-secondary);">
+                <p>Desarrollado por <strong>AJP-logic</strong></p>
+                <p>Copyright 2025 AJP-Logic</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal QR -->
+    <div id="qrModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" id="closeQr">&times;</span>
+            <h2>Escanear para Móvil</h2>
+            <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">Comparte esta app
+                escaneando el código:</p>
+            <div style="background: white; padding: 1rem; border-radius: 12px; display: inline-block;">
+                <img id="qrImage" src="" alt="Código QR" style="width: 150px; height: 150px; display: block;">
+            </div>
+        </div>
+    </div>
+
+    <!-- Efecto de sonido (Click suave) -->
+    <audio id="clickSound" src="https://cdn.pixabay.com/audio/2022/03/24/audio_732294402e.mp3" preload="auto"></audio>
+    <audio id="onlineSound" src="https://cdn.pixabay.com/audio/2021/08/04/audio_bb630cc098.mp3" preload="auto"></audio>
+
+    <!-- Banner de Instalación PWA -->
+    <div id="installBanner" class="install-banner">
+        <div class="install-content">
+            <img src="../icons/cambio.png" alt="App Icon" class="install-icon">
+            <div class="install-text">
+                <strong>Instalar App</strong>
+                <small>Acceso rápido y modo offline</small>
+            </div>
+        </div>
+        <button id="installBtn" class="install-action-btn">Instalar</button>
+        <button id="closeInstallBtn" class="close-install">&times;</button>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
