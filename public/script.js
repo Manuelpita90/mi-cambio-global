@@ -378,7 +378,7 @@ closeModal.addEventListener('click', () => {
 // --- Modal QR ---
 qrBtn.addEventListener('click', () => {
     // Generar QR con la URL actual
-    const currentUrl = encodeURIComponent(window.location.href);
+    const currentUrl = encodeURIComponent('https://manuelpita90.github.io/mi-cambio-global/');
     const qrImage = document.getElementById('qrImage');
     qrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${currentUrl}`;
 
