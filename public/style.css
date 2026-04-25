@@ -344,6 +344,47 @@ select {
     }
 }
 
+/* Skeleton Loading */
+.skeleton-card {
+    pointer-events: none;
+    animation: pulse-skeleton 1.5s infinite ease-in-out;
+}
+
+.skeleton-text {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+}
+
+.skeleton-title {
+    width: 60px;
+    height: 14px;
+    margin-bottom: 8px;
+}
+
+.skeleton-subtitle {
+    width: 100px;
+    height: 10px;
+}
+
+.skeleton-value {
+    width: 90px;
+    height: 20px;
+}
+
+@keyframes pulse-skeleton {
+    0% {
+        opacity: 0.4;
+    }
+
+    50% {
+        opacity: 0.8;
+    }
+
+    100% {
+        opacity: 0.4;
+    }
+}
+
 /* Botón Info */
 .info-btn {
     position: absolute;
@@ -501,4 +542,51 @@ select {
     cursor: pointer;
     margin-left: 10px;
     line-height: 1;
+}
+
+/* --- Responsividad para dispositivos móviles pequeños (ej. iPhone SE) --- */
+@media (max-width: 400px) {
+    .glass-container {
+        padding: 1.25rem;
+        /* Reducimos el espacio interior */
+        width: 95%;
+        /* Aprovechamos más el ancho de la pantalla */
+        border-radius: 20px;
+    }
+
+    header h1 {
+        font-size: 1.4rem;
+        /* Título un poco más pequeño para evitar saltos de línea */
+    }
+
+    /* Ajustamos los botones con posición absoluta a los nuevos márgenes */
+    .info-btn {
+        top: 1.25rem;
+        right: 1.25rem;
+    }
+
+    .qr-btn {
+        top: 3.5rem;
+        right: 1.25rem;
+    }
+
+    .status-dot {
+        top: 5rem;
+        right: 1.4rem;
+    }
+
+    input {
+        font-size: 1.25rem;
+        /* Input más compacto */
+    }
+
+    .currency-value {
+        font-size: 1.05rem;
+        /* Ajuste del tamaño de los resultados */
+    }
+
+    .chart-container {
+        height: 200px;
+        /* Reducimos altura del gráfico para evitar mucho scroll vertical */
+    }
 }

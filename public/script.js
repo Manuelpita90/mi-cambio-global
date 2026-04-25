@@ -18,6 +18,7 @@ const installBanner = document.getElementById('installBanner');
 const installBtn = document.getElementById('installBtn');
 const closeInstallBtn = document.getElementById('closeInstallBtn');
 const statusDot = document.getElementById('statusDot');
+const glassContainer = document.querySelector('.glass-container');
 
 // Cambiar a tipo texto para permitir formato visual con comas
 amountInput.type = 'text';
@@ -126,7 +127,11 @@ function calculateResults() {
         amountInput.value = Math.abs(amount);
         return calculateResults();
     }
-    if (isNaN(amount)) return;
+
+    // Si el usuario borra todo, mostrar cálculos en base a 0 para no dejar la pantalla vacía
+    if (isNaN(amount)) {
+        amount = 0;
+    }
 
     // Lógica de conversión: Todo a USD primero, luego a destino
     // Formula: (Monto / TasaBase) * TasaDestino
@@ -254,7 +259,21 @@ function updateLastUpdated() {
 }
 
 function showLoading() {
-    resultsContainer.innerHTML = '<div class="spinner"></div>';
+    // Generar esqueletos dinámicamente (total de monedas menos la moneda base seleccionada)
+    const skeletonsCount = Object.keys(currencies).length - 1;
+    let skeletonsHTML = '';
+    for (let i = 0; i < skeletonsCount; i++) {
+        skeletonsHTML += `
+            <div class="result-card skeleton-card">
+                <div class="currency-info">
+                    <div class="skeleton-text skeleton-title"></div>
+                    <div class="skeleton-text skeleton-subtitle"></div>
+                </div>
+                <div class="skeleton-text skeleton-value"></div>
+            </div>
+        `;
+    }
+    resultsContainer.innerHTML = skeletonsHTML;
 }
 
 // --- Funciones del Gráfico (Chart.js) ---
@@ -294,39 +313,46 @@ function updateChart() {
 
     const ctx = chartCanvas.getContext('2d');
 
-    // Destruir gráfico anterior si existe
     if (exchangeChart) {
-        exchangeChart.destroy();
-    }
-
-    // Crear nuevo gráfico
-    exchangeChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: historyData.labels,
-            datasets: [{
-                label: `${base} vs ${target} (Últimos 7 días)`,
-                data: historyData.data,
-                borderColor: '#38bdf8', // var(--accent)
-                backgroundColor: 'rgba(56, 189, 248, 0.1)',
-                borderWidth: 2,
-                tension: 0.4, // Curva suave
-                pointRadius: 4,
-                fill: true
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { labels: { color: '#94a3b8' } } // var(--text-secondary)
+        // Actualizar datos del gráfico existente para animar la transición
+        exchangeChart.data.labels = historyData.labels;
+        exchangeChart.data.datasets[0].data = historyData.data;
+        exchangeChart.data.datasets[0].label = `${base} vs ${target} (Últimos 7 días)`;
+        exchangeChart.update();
+    } else {
+        // Crear nuevo gráfico solo si no existe
+        exchangeChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: historyData.labels,
+                datasets: [{
+                    label: `${base} vs ${target} (Últimos 7 días)`,
+                    data: historyData.data,
+                    borderColor: '#38bdf8', // var(--accent)
+                    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.4, // Curva suave
+                    pointRadius: 4,
+                    fill: true
+                }]
             },
-            scales: {
-                y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } },
-                x: { ticks: { color: '#94a3b8' }, grid: { display: false } }
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: {
+                    duration: 800, // Transición más suave (800ms)
+                    easing: 'easeOutQuart'
+                },
+                plugins: {
+                    legend: { labels: { color: '#94a3b8' } } // var(--text-secondary)
+                },
+                scales: {
+                    y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                    x: { ticks: { color: '#94a3b8' }, grid: { display: false } }
+                }
             }
-        }
-    });
+        });
+    }
 }
 
 // --- Event Listeners ---
@@ -377,8 +403,8 @@ closeModal.addEventListener('click', () => {
 
 // --- Modal QR ---
 qrBtn.addEventListener('click', () => {
-    // Generar QR con la URL actual
-    const currentUrl = encodeURIComponent('https://manuelpita90.github.io/mi-cambio-global/');
+    // Generar QR dinámicamente usando la URL real donde esté hosteada la app
+    const currentUrl = encodeURIComponent(window.location.href.split('#')[0]);
     const qrImage = document.getElementById('qrImage');
     qrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${currentUrl}`;
 
@@ -394,12 +420,10 @@ refreshBtn.addEventListener('click', () => {
     const now = new Date();
     const day = now.getDay();
 
-    // Si es fin de semana (Sábado=6, Domingo=0), no actualizar
     if (day === 0 || day === 6) {
-        showToast('Mercado cerrado. Próxima actualización: Lunes');
-        return;
+        showToast('Fin de semana: Obteniendo último cierre...');
     }
-    fetchRates(); // Llama a la API forzando la actualización
+    fetchRates(true); // Llama a la API forzando la actualización y mostrando confirmación
 });
 
 window.addEventListener('click', (e) => {
@@ -425,6 +449,31 @@ document.addEventListener('click', (e) => {
         playClickSound();
     }
 }, true);
+
+// --- Efecto Tilt (Inclinación 3D) ---
+// Solo aplicamos el efecto en dispositivos que usan un cursor tradicional (ratón)
+if (glassContainer && window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
+    glassContainer.addEventListener('mousemove', (e) => {
+        const rect = glassContainer.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        const centerX = rect.width / 2;
+        const centerY = rect.height / 2;
+
+        // Inclinación máxima de 5 grados (muy sutil y elegante)
+        const rotateX = ((y - centerY) / centerY) * -5;
+        const rotateY = ((x - centerX) / centerX) * 5;
+
+        glassContainer.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+        glassContainer.style.transition = 'none'; // Sin transición para que siga el ratón en tiempo real
+    });
+
+    glassContainer.addEventListener('mouseleave', () => {
+        glassContainer.style.transform = `perspective(1000px) rotateX(0) rotateY(0)`;
+        glassContainer.style.transition = 'transform 0.5s ease-out'; // Transición suave para regresar al centro
+    });
+}
 
 // --- PWA & Service Worker ---
 let deferredPrompt;
@@ -503,8 +552,11 @@ function checkAndInit() {
         const lastFetch = new Date(state.fetchDate);
         const isSameDay = lastFetch.toDateString() === now.toDateString();
 
-        if (isWeekend || isSameDay) {
-            // Fin de semana O ya actualizado hoy: Usar datos guardados
+        // Verificar que los datos del fin de semana no sean más antiguos de 3 días
+        const isRecent = (now.getTime() - lastFetch.getTime()) < (3 * 24 * 60 * 60 * 1000);
+
+        if (isSameDay || (isWeekend && isRecent)) {
+            // Actualizado hoy, o es fin de semana con datos recientes: Usar datos guardados
             loadStoredData(state);
         } else {
             // Día de semana y no actualizado hoy: Buscar nuevas tasas
