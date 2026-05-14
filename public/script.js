@@ -63,13 +63,13 @@ let exchangeChart = null;
 
 async function fetchRates(isAuto = false) {
     if (!isAuto) showLoading();
-    
+
     // Implementar un timeout de 8 segundos para evitar cargas infinitas
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
 
     try {
-        const response = await fetch(API_URL, { signal: controller.signal });
+        const response = await fetch(API_URL, { signal: controller.signal, cache: 'no-store' });
         clearTimeout(timeoutId); // Limpiar el timeout si respondió a tiempo
 
         if (!response.ok) {
@@ -90,7 +90,7 @@ async function fetchRates(isAuto = false) {
 
         // Consultar una API dedicada para Venezuela (DolarAPI) para obtener la tasa real del BCV
         try {
-            const vesResponse = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
+            const vesResponse = await fetch('https://ve.dolarapi.com/v1/dolares/oficial', { cache: 'no-store' });
             if (vesResponse.ok) {
                 const vesData = await vesResponse.json();
                 if (vesData.promedio) {
@@ -316,7 +316,7 @@ function generateMockHistory(baseRate, days = 7) {
     // Semilla para que el gráfico sea seudoaleatorio pero determinista basado en el día
     const seedStr = today.toDateString();
     let seed = 0;
-    for(let i = 0; i < seedStr.length; i++) seed += seedStr.charCodeAt(i);
+    for (let i = 0; i < seedStr.length; i++) seed += seedStr.charCodeAt(i);
 
     for (let i = days - 1; i >= 0; i--) {
         const date = new Date();
@@ -327,7 +327,7 @@ function generateMockHistory(baseRate, days = 7) {
         const pseudoRandom = Math.sin(seed + i) * 10000;
         const randomFraction = pseudoRandom - Math.floor(pseudoRandom);
         const variation = 1 + (randomFraction * 0.04 - 0.02);
-        
+
         data.push(baseRate * variation);
     }
     // Asegurar que el último valor sea el actual
@@ -588,10 +588,13 @@ function checkAndInit() {
         const lastFetch = new Date(state.fetchDate);
         const isSameDay = lastFetch.toDateString() === now.toDateString();
 
+        // Verificar si han pasado más de 4 horas desde la última actualización
+        const hoursSinceLastFetch = (now.getTime() - lastFetch.getTime()) / (1000 * 60 * 60);
+
         // Verificar que los datos del fin de semana no sean más antiguos de 3 días
         const isRecent = (now.getTime() - lastFetch.getTime()) < (3 * 24 * 60 * 60 * 1000);
 
-        if (isSameDay || (isWeekend && isRecent)) {
+        if ((isSameDay && hoursSinceLastFetch < 4) || (isWeekend && isRecent)) {
             // Actualizado hoy, o es fin de semana con datos recientes: Usar datos guardados
             loadStoredData(state);
         } else {

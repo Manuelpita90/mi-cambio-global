@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mi-cambio-v5'; // Actualizamos la versión para forzar el registro
+const CACHE_NAME = 'mi-cambio-v6'; // Actualizamos la versión para forzar el registro
 const ASSETS = [
     './public/index.html',
     './public/style.css',
@@ -36,7 +36,7 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
     // No interceptar peticiones a la API de tasas para asegurar que siempre intente traer datos frescos.
     // El script.js ya maneja el modo offline de las tasas usando LocalStorage.
-    if (e.request.url.includes('api.exchangerate-api.com')) {
+    if (e.request.url.includes('api.exchangerate-api.com') || e.request.url.includes('ve.dolarapi.com')) {
         return;
     }
 
