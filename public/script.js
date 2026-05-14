@@ -43,7 +43,7 @@ let exchangeRates = {
     USD: 1,
     EUR: 0.93, // Ejemplo
     COP: 3900, // Ejemplo
-    VES: 36.50 // Ejemplo BCV (Ajustable manualmente aquí si la API falla)
+    VES: 510.79 // Tasa real manual (la API gratuita suele enviar datos erróneos)
 };
 
 // Tasas del día anterior (Simuladas para calcular tendencias)
@@ -88,10 +88,17 @@ async function fetchRates(isAuto = false) {
         exchangeRates.EUR = data.rates.EUR;
         exchangeRates.COP = data.rates.COP;
 
-        // A veces las APIs internacionales tienen el VES desactualizado.
-        // Si la API trae VES, lo usamos, si no, mantenemos el fallback manual.
-        if (data.rates.VES) {
-            exchangeRates.VES = data.rates.VES;
+        // Consultar una API dedicada para Venezuela (DolarAPI) para obtener la tasa real del BCV
+        try {
+            const vesResponse = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
+            if (vesResponse.ok) {
+                const vesData = await vesResponse.json();
+                if (vesData.promedio) {
+                    exchangeRates.VES = vesData.promedio; // Actualiza automáticamente a la tasa del día (ej. 510.79)
+                }
+            }
+        } catch (e) {
+            console.warn("Fallo al contactar API de VES, manteniendo tasa de respaldo local.", e);
         }
 
         // Simular historial previo para mostrar tendencias (ya que la API gratuita no da historial)
