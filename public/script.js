@@ -59,27 +59,7 @@ const API_URL = 'https://api.exchangerate-api.com/v4/latest/USD';
 // Variable para la instancia del gráfico
 let exchangeChart = null;
 
-// Cargar datos del almacenamiento
-function loadStoredData() {
-    const saved = localStorage.getItem('exchangeAppState');
-    if (saved) {
-        try {
-            const data = JSON.parse(saved);
-            // Validación: Si el caché tiene una tasa errónea de 36.50, forzar actualización
-            if (data.rates && data.rates.VES === 36.50) {
-                console.log("Caché obsoleto detectado, forzando actualización.");
-                return;
-            }
-            exchangeRates = data.rates;
-            previousRates = data.prevRates;
-            lastApiUpdate = new Date(data.apiDate);
-            calculateResults();
-            updateChart();
-            updateAppBackground();
-        } catch (e) { console.error("Error al cargar estado previo", e); }
-    }
-}
-loadStoredData();
+
 
 // --- Funciones Principales ---
 
