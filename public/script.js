@@ -63,8 +63,19 @@ let exchangeChart = null;
 
 async function fetchRates(isAuto = false) {
     if (!isAuto) showLoading();
+    
+    // Implementar un timeout de 8 segundos para evitar cargas infinitas
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
     try {
-        const response = await fetch(API_URL);
+        const response = await fetch(API_URL, { signal: controller.signal });
+        clearTimeout(timeoutId); // Limpiar el timeout si respondió a tiempo
+
+        if (!response.ok) {
+            throw new Error(`Error de API HTTP: ${response.status}`);
+        }
+
         const data = await response.json();
 
         // Capturar fecha real de la API (si existe)
@@ -84,10 +95,23 @@ async function fetchRates(isAuto = false) {
         }
 
         // Simular historial previo para mostrar tendencias (ya que la API gratuita no da historial)
-        Object.keys(exchangeRates).forEach(code => {
-            // Variación aleatoria pequeña (-1.5% a +1.5%)
-            previousRates[code] = exchangeRates[code] * (1 + (Math.random() * 0.03 - 0.015));
-        });
+        const todayStr = new Date().toDateString();
+        const savedDate = localStorage.getItem('mockDate');
+        let shouldRegenerate = savedDate !== todayStr;
+        let savedPrevRatesStr = localStorage.getItem('prevRates');
+
+        if (!shouldRegenerate && savedPrevRatesStr) {
+            try { previousRates = JSON.parse(savedPrevRatesStr); } catch (e) { shouldRegenerate = true; }
+        }
+
+        if (shouldRegenerate || Object.keys(previousRates).length === 0) {
+            Object.keys(exchangeRates).forEach(code => {
+                // Variación aleatoria pequeña (-1.5% a +1.5%)
+                previousRates[code] = exchangeRates[code] * (1 + (Math.random() * 0.03 - 0.015));
+            });
+            localStorage.setItem('prevRates', JSON.stringify(previousRates));
+            localStorage.setItem('mockDate', todayStr);
+        }
 
         // Guardar estado en LocalStorage
         const appState = {
@@ -117,9 +141,9 @@ async function fetchRates(isAuto = false) {
 function calculateResults() {
     resultsContainer.innerHTML = ''; // Limpiar
 
-    // Eliminar comas para que JavaScript pueda calcular (formato 1,000.00 -> 1000.00)
-    const rawValue = amountInput.value.replace(/,/g, '');
-    const amount = parseFloat(rawValue);
+    // Eliminar puntos de miles, y cambiar coma decimal por punto (formato 1.000,00 -> 1000.00)
+    const rawValue = amountInput.value.replace(/\./g, '').replace(',', '.');
+    let amount = parseFloat(rawValue);
     const base = baseSelect.value;
 
     // Validación: Evitar números negativos
@@ -215,9 +239,6 @@ function createResultCard(code, value, changePct, index = 0) {
         copyToClipboard(formattedValue);
     });
 
-    // Click en el resto de la tarjeta (Fallback para copiar)
-    card.addEventListener('click', () => copyToClipboard(formattedValue));
-
     resultsContainer.appendChild(card);
 }
 
@@ -285,13 +306,21 @@ function generateMockHistory(baseRate, days = 7) {
     const data = [];
     const today = new Date();
 
+    // Semilla para que el gráfico sea seudoaleatorio pero determinista basado en el día
+    const seedStr = today.toDateString();
+    let seed = 0;
+    for(let i = 0; i < seedStr.length; i++) seed += seedStr.charCodeAt(i);
+
     for (let i = days - 1; i >= 0; i--) {
         const date = new Date();
         date.setDate(today.getDate() - i);
         labels.push(date.toLocaleDateString('es-ES', { weekday: 'short' }));
 
-        // Variación aleatoria pequeña (+- 2%) sobre la tasa actual para demo
-        const variation = 1 + (Math.random() * 0.04 - 0.02);
+        // Variación seudoaleatoria determinista (+- 2%)
+        const pseudoRandom = Math.sin(seed + i) * 10000;
+        const randomFraction = pseudoRandom - Math.floor(pseudoRandom);
+        const variation = 1 + (randomFraction * 0.04 - 0.02);
+        
         data.push(baseRate * variation);
     }
     // Asegurar que el último valor sea el actual
@@ -362,19 +391,19 @@ amountInput.addEventListener('input', (e) => {
     const cursorStart = e.target.selectionStart;
     const oldLength = e.target.value.length;
 
-    // 2. Limpiar: permitir solo números y un punto decimal
-    let value = e.target.value.replace(/[^0-9.]/g, '');
-    let parts = value.split('.');
+    // 2. Limpiar: permitir solo números y UNA coma decimal (formato latino)
+    let value = e.target.value.replace(/[^0-9,]/g, '');
+    let parts = value.split(',');
 
-    // Asegurar que solo haya un punto decimal
+    // Asegurar que solo haya una coma decimal
     if (parts.length > 2) {
-        value = parts[0] + '.' + parts.slice(1).join('');
-        parts = value.split('.');
+        value = parts[0] + ',' + parts.slice(1).join('');
+        parts = value.split(',');
     }
 
-    // 3. Formatear miles con comas (Estilo estándar: 1,000.00)
-    const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-    const formattedValue = parts.length > 1 ? integerPart + '.' + parts.slice(1).join('') : integerPart;
+    // 3. Formatear miles con puntos (Estilo latino: 1.000,00)
+    const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    const formattedValue = parts.length > 1 ? integerPart + ',' + parts.slice(1).join('') : integerPart;
 
     // 4. Actualizar valor y ajustar cursor
     if (e.target.value !== formattedValue) {
