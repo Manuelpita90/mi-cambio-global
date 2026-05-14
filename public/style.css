@@ -9,6 +9,10 @@
     --accent-glow: rgba(56, 189, 248, 0.3);
     --success: #4ade80;
     --danger: #f87171;
+    --shape-1-color: #4f46e5;
+    /* Color base forma 1 (Índigo) */
+    --shape-2-color: #c026d3;
+    /* Color base forma 2 (Fucsia) */
 }
 
 * {
@@ -16,6 +20,24 @@
     padding: 0;
     box-sizing: border-box;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body.bg-trend-up {
+    --bg-color: #022c22;
+    /* Tinte esmeralda muy oscuro */
+    --shape-1-color: #059669;
+    /* Tinte esmeralda brillante */
+    --shape-2-color: #047857;
+    /* Tinte esmeralda intermedio */
+}
+
+body.bg-trend-down {
+    --bg-color: #381212;
+    /* Tinte rojo muy oscuro */
+    --shape-1-color: #dc2626;
+    /* Tinte rojo brillante */
+    --shape-2-color: #b91c1c;
+    /* Tinte rojo oscuro */
 }
 
 body {
@@ -27,6 +49,7 @@ body {
     align-items: center;
     overflow-x: hidden;
     position: relative;
+    transition: background-color 1.5s ease;
 }
 
 /* Formas de fondo para resaltar el vidrio */
@@ -40,17 +63,19 @@ body {
 .shape-1 {
     width: 300px;
     height: 300px;
-    background: #4f46e5;
+    background: var(--shape-1-color);
     top: -50px;
     left: -50px;
+    transition: background 1.5s ease;
 }
 
 .shape-2 {
     width: 250px;
     height: 250px;
-    background: #c026d3;
+    background: var(--shape-2-color);
     bottom: -50px;
     right: -50px;
+    transition: background 1.5s ease;
 }
 
 /* Contenedor Glassmorphism */

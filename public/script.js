@@ -59,6 +59,28 @@ const API_URL = 'https://api.exchangerate-api.com/v4/latest/USD';
 // Variable para la instancia del gráfico
 let exchangeChart = null;
 
+// Cargar datos del almacenamiento
+function loadStoredData() {
+    const saved = localStorage.getItem('exchangeAppState');
+    if (saved) {
+        try {
+            const data = JSON.parse(saved);
+            // Validación: Si el caché tiene una tasa errónea de 36.50, forzar actualización
+            if (data.rates && data.rates.VES === 36.50) {
+                console.log("Caché obsoleto detectado, forzando actualización.");
+                return;
+            }
+            exchangeRates = data.rates;
+            previousRates = data.prevRates;
+            lastApiUpdate = new Date(data.apiDate);
+            calculateResults();
+            updateChart();
+            updateAppBackground();
+        } catch (e) { console.error("Error al cargar estado previo", e); }
+    }
+}
+loadStoredData();
+
 // --- Funciones Principales ---
 
 async function fetchRates(isAuto = false) {
@@ -67,6 +89,8 @@ async function fetchRates(isAuto = false) {
     // Implementar un timeout de 8 segundos para evitar cargas infinitas
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    let mainApiSuccess = false;
 
     try {
         const response = await fetch(API_URL, { signal: controller.signal, cache: 'no-store' });
@@ -87,61 +111,74 @@ async function fetchRates(isAuto = false) {
         exchangeRates.USD = data.rates.USD;
         exchangeRates.EUR = data.rates.EUR;
         exchangeRates.COP = data.rates.COP;
-
-        // Consultar una API dedicada para Venezuela (DolarAPI) para obtener la tasa real del BCV
-        try {
-            const vesResponse = await fetch('https://ve.dolarapi.com/v1/dolares/oficial', { cache: 'no-store' });
-            if (vesResponse.ok) {
-                const vesData = await vesResponse.json();
-                if (vesData.promedio) {
-                    exchangeRates.VES = vesData.promedio; // Actualiza automáticamente a la tasa del día (ej. 510.79)
-                }
-            }
-        } catch (e) {
-            console.warn("Fallo al contactar API de VES, manteniendo tasa de respaldo local.", e);
-        }
-
-        // Simular historial previo para mostrar tendencias (ya que la API gratuita no da historial)
-        const todayStr = new Date().toDateString();
-        const savedDate = localStorage.getItem('mockDate');
-        let shouldRegenerate = savedDate !== todayStr;
-        let savedPrevRatesStr = localStorage.getItem('prevRates');
-
-        if (!shouldRegenerate && savedPrevRatesStr) {
-            try { previousRates = JSON.parse(savedPrevRatesStr); } catch (e) { shouldRegenerate = true; }
-        }
-
-        if (shouldRegenerate || Object.keys(previousRates).length === 0) {
-            Object.keys(exchangeRates).forEach(code => {
-                // Variación aleatoria pequeña (-1.5% a +1.5%)
-                previousRates[code] = exchangeRates[code] * (1 + (Math.random() * 0.03 - 0.015));
-            });
-            localStorage.setItem('prevRates', JSON.stringify(previousRates));
-            localStorage.setItem('mockDate', todayStr);
-        }
-
-        // Guardar estado en LocalStorage
-        const appState = {
-            rates: exchangeRates,
-            prevRates: previousRates,
-            apiDate: lastApiUpdate.getTime(),
-            fetchDate: new Date().getTime()
-        };
-        localStorage.setItem('exchangeAppState', JSON.stringify(appState));
-
-        updateLastUpdated();
-        calculateResults();
-        updateChart();
-
-        if (isAuto) {
-            showToast('Tasas actualizadas automáticamente');
-        }
+        mainApiSuccess = true;
 
     } catch (error) {
-        console.error("Error al obtener tasas, usando respaldo local.", error);
+        console.error("Error al obtener tasas globales, usando respaldo local.", error);
         lastUpdatedEl.innerText = "Modo Offline: Usando tasas estimadas.";
+    }
+
+    // Consultar una API dedicada para Venezuela (DolarAPI) para obtener la tasa real del BCV
+    // Lo hacemos fuera del primer try-catch para que si la API global falla, igual actualice el Bolívar
+    try {
+        const vesResponse = await fetch('https://ve.dolarapi.com/v1/dolares/oficial', { cache: 'no-store' });
+        if (vesResponse.ok) {
+            const vesData = await vesResponse.json();
+            if (vesData.promedio) {
+                exchangeRates.VES = vesData.promedio; // Actualiza automáticamente a la tasa del día (ej. 510.79)
+                // Capturar la hora de actualización exacta del BCV
+                if (vesData.fechaActualizacion) {
+                    lastApiUpdate = new Date(vesData.fechaActualizacion);
+                }
+            }
+        }
+    } catch (e) {
+        console.warn("Fallo al contactar API de VES, manteniendo tasa de respaldo local.", e);
+    }
+
+    // Si ambas fallaron y no es una recarga automática, mostrar error
+    if (!mainApiSuccess) {
         calculateResults();
         updateChart();
+        updateAppBackground();
+        return;
+    }
+
+    // Simular historial previo para mostrar tendencias (ya que la API gratuita no da historial)
+    const todayStr = new Date().toDateString();
+    const savedDate = localStorage.getItem('mockDate');
+    let shouldRegenerate = savedDate !== todayStr;
+    let savedPrevRatesStr = localStorage.getItem('prevRates');
+
+    if (!shouldRegenerate && savedPrevRatesStr) {
+        try { previousRates = JSON.parse(savedPrevRatesStr); } catch (e) { shouldRegenerate = true; }
+    }
+
+    if (shouldRegenerate || Object.keys(previousRates).length === 0) {
+        Object.keys(exchangeRates).forEach(code => {
+            // Variación aleatoria pequeña (-1.5% a +1.5%)
+            previousRates[code] = exchangeRates[code] * (1 + (Math.random() * 0.03 - 0.015));
+        });
+        localStorage.setItem('prevRates', JSON.stringify(previousRates));
+        localStorage.setItem('mockDate', todayStr);
+    }
+
+    // Guardar estado en LocalStorage
+    const appState = {
+        rates: exchangeRates,
+        prevRates: previousRates,
+        apiDate: lastApiUpdate.getTime(),
+        fetchDate: new Date().getTime()
+    };
+    localStorage.setItem('exchangeAppState', JSON.stringify(appState));
+
+    updateLastUpdated();
+    calculateResults();
+    updateChart();
+    updateAppBackground();
+
+    if (isAuto) {
+        showToast('Tasas actualizadas automáticamente');
     }
 }
 
@@ -200,8 +237,12 @@ function createResultCard(code, value, changePct, index = 0) {
     const trendClass = isPositive ? 'trend-up' : 'trend-down';
     const trendSign = isPositive ? '+' : '';
 
-    // Formatear hora de actualización
-    const timeString = lastApiUpdate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    // Formatear hora de actualización (Forzado a Hora de Venezuela)
+    const timeString = lastApiUpdate.toLocaleTimeString('es-VE', {
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'America/Caracas'
+    });
 
     const card = document.createElement('div');
     card.className = 'result-card';
@@ -264,8 +305,13 @@ function showToast(message) {
 }
 
 function updateLastUpdated() {
-    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
-    let text = `Actualizado: ${lastApiUpdate.toLocaleDateString('es-ES', options)}`;
+    const options = {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+        hour: '2-digit', minute: '2-digit',
+        timeZone: 'America/Caracas'
+    };
+    // HLV = Hora Legal de Venezuela
+    let text = `Actualizado: ${lastApiUpdate.toLocaleDateString('es-VE', options)} (HLV)`;
 
     // Calcular próxima actualización
     const now = new Date();
@@ -284,6 +330,24 @@ function updateLastUpdated() {
 
     const nextOptions = { weekday: 'long', day: 'numeric', month: 'long' };
     lastUpdatedEl.innerText = `${text} | Próxima: ${nextUpdate.toLocaleDateString('es-ES', nextOptions)}`;
+}
+
+function updateAppBackground() {
+    if (!previousRates || !previousRates.VES) return;
+
+    // Evaluamos la tendencia del Dólar (USD) respecto al Bolívar (VES)
+    const currentRate = exchangeRates.VES;
+    const prevRate = previousRates.VES;
+
+    if (currentRate > prevRate) {
+        document.body.classList.add('bg-trend-up'); // El dólar subió (Verde)
+        document.body.classList.remove('bg-trend-down');
+    } else if (currentRate < prevRate) {
+        document.body.classList.add('bg-trend-down'); // El dólar bajó (Rojo)
+        document.body.classList.remove('bg-trend-up');
+    } else {
+        document.body.classList.remove('bg-trend-up', 'bg-trend-down');
+    }
 }
 
 function showLoading() {
@@ -612,7 +676,16 @@ function loadStoredData(state) {
     previousRates = state.prevRates;
     lastApiUpdate = new Date(state.apiDate);
 
+    // Limpieza de caché corrupto: Si la caché antigua guardó 36.50, ignorarla y forzar actualización real
+    if (exchangeRates.VES === 36.50) {
+        exchangeRates.VES = 510.79; // Tasa manual temporal
+        console.log("Detectado caché antiguo con 36.50. Forzando actualización...");
+        fetchRates(true); // Forzar fetch en segundo plano
+        return;
+    }
+
     updateLastUpdated();
     calculateResults();
     updateChart();
+    updateAppBackground();
 }

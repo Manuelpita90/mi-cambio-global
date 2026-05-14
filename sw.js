@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mi-cambio-v6'; // Actualizamos la versión para forzar el registro
+const CACHE_NAME = 'mi-cambio-v7'; // Actualizamos la versión para forzar el registro
 const ASSETS = [
     './public/index.html',
     './public/style.css',
