@@ -71,6 +71,7 @@ async function fetchRates(isAuto = false) {
     const timeoutId = setTimeout(() => controller.abort(), 8000);
 
     let mainApiSuccess = false;
+    let vesApiSuccess = false;
 
     try {
         const response = await fetch(API_URL, { signal: controller.signal, cache: 'no-store' });
@@ -101,14 +102,18 @@ async function fetchRates(isAuto = false) {
     // Consultar una API dedicada para Venezuela (DolarAPI) para obtener la tasa real del BCV
     // Lo hacemos fuera del primer try-catch para que si la API global falla, igual actualice el Bolívar
     try {
-        const vesResponse = await fetch('https://ve.dolarapi.com/v1/dolares/oficial', { cache: 'no-store' });
+        // Agregamos la señal de aborto (signal) para evitar que la app se quede cargando infinitamente si esta API falla
+        const vesResponse = await fetch('https://ve.dolarapi.com/v1/dolares/oficial', { signal: controller.signal, cache: 'no-store' });
         if (vesResponse.ok) {
             const vesData = await vesResponse.json();
             if (vesData.promedio) {
                 exchangeRates.VES = vesData.promedio; // Actualiza automáticamente a la tasa del día (ej. 510.79)
+                vesApiSuccess = true;
                 // Capturar la hora de actualización exacta del BCV
                 if (vesData.fechaActualizacion) {
-                    lastApiUpdate = new Date(vesData.fechaActualizacion);
+                    const parsedDate = new Date(vesData.fechaActualizacion);
+                    // Validación para evitar que la aplicación falle (Invalid Date) si la API cambia su formato
+                    if (!isNaN(parsedDate.getTime())) lastApiUpdate = parsedDate;
                 }
             }
         }
@@ -116,8 +121,8 @@ async function fetchRates(isAuto = false) {
         console.warn("Fallo al contactar API de VES, manteniendo tasa de respaldo local.", e);
     }
 
-    // Si ambas fallaron y no es una recarga automática, mostrar error
-    if (!mainApiSuccess) {
+    // Si AMBAS APIs fallaron, abortar el guardado y usar datos locales
+    if (!mainApiSuccess && !vesApiSuccess) {
         calculateResults();
         updateChart();
         updateAppBackground();
@@ -656,12 +661,9 @@ function loadStoredData(state) {
     previousRates = state.prevRates;
     lastApiUpdate = new Date(state.apiDate);
 
-    // Limpieza de caché corrupto: Si la caché antigua guardó 36.50, ignorarla y forzar actualización real
-    if (exchangeRates.VES === 36.50) {
-        exchangeRates.VES = 510.79; // Tasa manual temporal
-        console.log("Detectado caché antiguo con 36.50. Forzando actualización...");
-        fetchRates(true); // Forzar fetch en segundo plano
-        return;
+    // Prevenir errores críticos en la visualización si la fecha en caché se corrompió
+    if (isNaN(lastApiUpdate.getTime())) {
+        lastApiUpdate = new Date();
     }
 
     updateLastUpdated();
